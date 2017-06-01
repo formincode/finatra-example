@@ -1,0 +1,68 @@
+buildscript {
+    repositories {
+        jcenter()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.github.rholder:gradle-one-jar:1.0.4'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${versions.kotlinVersion}"
+        classpath 'com.yodle.griddle:griddle:1.8'
+    }
+}
+
+repositories {
+    jcenter()
+    mavenCentral()
+}
+
+apply plugin: 'gradle-one-jar'
+apply plugin: 'application'
+apply plugin: 'java'
+apply plugin: 'maven-publish'
+apply plugin: 'kotlin'
+apply plugin: 'scrooge-java'
+
+ext.thrift_version = '1.0'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+mainClassName = 'test.ServerMain'
+
+dependencies {
+    // Griddle Plugin configuration for Generating Java Classes from IDL
+    scroogeGen "com.twitter:scrooge-generator_${versions.scala}:${versions.scrooge_generator}"
+
+    compile "org.scala-lang.modules:scala-java8-compat_2.11:0.8.0"
+    compile "com.twitter:finatra-http_2.11:2.7.0"
+    compile "org.jetbrains.kotlin:kotlin-stdlib:${versions.kotlinVersion}"
+    compile "org.codehaus.groovy:groovy:${versions.groovy}"
+    compile "net.logstash.logback:logstash-logback-encoder:${versions.logstash_logback_encoder}"
+    compile "ch.qos.logback:logback-classic:${versions.logback_classic}"
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+    testCompile "org.mockito:mockito-core:${versions.mockito}"
+    testCompile "org.jetbrains.kotlin:kotlin-test-junit:${versions.kotlinVersion}"
+}
+
+task thriftJar(type: Jar) {
+    from(sourceSets.main.output) {
+        include "test/thriftjava/**"
+    }
+}
+
+task thriftSourceJar(type: Jar) {
+    from(thriftGenDir) {
+        include "test/thriftjava/**.java"
+    }
+    classifier 'sources'
+}
+
+jar {
+    // exclude manifest signature files to resolve 'Invalid signature file' digest issue.
+    exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA'
+    manifest {
+        attributes(
+                'Main-Class': mainClassName
+        )
+    }
+}
