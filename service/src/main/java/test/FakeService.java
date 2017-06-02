@@ -5,8 +5,6 @@ import com.twitter.util.Future;
 import com.twitter.util.FuturePool;
 
 import javax.inject.Inject;
-import java.util.Arrays;
-import java.util.List;
 
 import static scala.compat.java8.JFunction.func;
 
@@ -37,7 +35,7 @@ public class FakeService {
             }));
     }
 
-    public Future<List<Integer>> someOtherCall(String id) {
+    public Future<Integer> someOtherCall(String id) {
         return futurePool.apply(func(() -> {
             // This is to mimic a blocking RPC request a remote service.
             try {
@@ -45,7 +43,7 @@ public class FakeService {
             } catch (InterruptedException e) {
                 // This is not production code. It's ok if we are interrupted.
             }
-            return Arrays.asList(100);
+            return 100;
         }));
     }
 }
