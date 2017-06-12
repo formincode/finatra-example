@@ -1,9 +1,13 @@
 package test;
 
 import com.google.common.net.MediaType;
+import com.twitter.finagle.http.Response;
 import com.twitter.finatra.http.AbstractController;
+import com.twitter.util.Function;
 import com.twitter.util.Future;
 import com.twitter.util.Futures;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -18,6 +22,8 @@ import static scala.compat.java8.JFunction.func;
 public class ExampleControllerJava extends AbstractController {
     private static final String ERROR_CONTENT_STRING = "{\"errors\":[\"%s\"]}";
     private FakeService fakeService;
+    private static final Logger logger = LoggerFactory.getLogger(ExampleControllerJava.class);
+
 
     @Inject
     public ExampleControllerJava(FakeService fakeService) {
@@ -34,10 +40,21 @@ public class ExampleControllerJava extends AbstractController {
                              .map(func(resultCall1 -> {return Arrays.asList(fakeService.someOtherCall(resultCall1.toString()));}))
                              .flatMap(func(futures -> Futures.collect(futures)))
                              .map(func(resultCall2 -> {
+                                     if (request.getParam("str")!=null) {
+                                         throw new RuntimeException("nope!");
+                                     }
                                      StringBuffer buffer = new StringBuffer();
                                      resultCall2.forEach(x ->  buffer.append(x.toString()).append(" "));
                                      return response().ok().body(buffer.toString()).contentType(MediaType.JSON_UTF_8);
-                             }));
+                             }))
+                             .handle(new Function<Throwable, Response>() {
+                                    @Override
+                                    public Response apply(Throwable throwable) {
+                                        logger.info("Error getting messages for request:{}", request);
+                                        String errorString=String.format(ERROR_CONTENT_STRING,throwable.getMessage());
+                                        return response().badRequest(errorString).contentType(MediaType.JSON_UTF_8);
+                                    }
+                                });
                     } catch (Exception e) {
                         String errorString=String.format(ERROR_CONTENT_STRING,e.getMessage());
                         return response().badRequest(errorString).contentType(MediaType.JSON_UTF_8);
