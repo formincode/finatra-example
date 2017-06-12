@@ -11,7 +11,7 @@ import test.thriftjava.ServiceInterface;
  */
 public class ThriftClient {
     public static void main(String[] args) throws Exception {
-        String dest = "zk!localhost:2181!//test/example";
+        String dest = "zk!localhost:2181!/test/example";
         ServiceInterface.ServiceIface client = Thrift.client().newIface(dest, ServiceInterface.ServiceIface.class);
         Response resp = Await.result(client.get(new Request()));
 
