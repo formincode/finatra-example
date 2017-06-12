@@ -38,7 +38,6 @@ public class ExampleControllerJava extends AbstractController {
                                      resultCall2.forEach(x ->  buffer.append(x.toString()).append(" "));
                                      return response().ok().body(buffer.toString()).contentType(MediaType.JSON_UTF_8);
                              }));
-
                     } catch (Exception e) {
                         String errorString=String.format(ERROR_CONTENT_STRING,e.getMessage());
                         return response().badRequest(errorString).contentType(MediaType.JSON_UTF_8);

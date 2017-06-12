@@ -33,6 +33,7 @@ dependencies {
     // Griddle Plugin configuration for Generating Java Classes from IDL
     scroogeGen "com.twitter:scrooge-generator_${versions.scala}:${versions.scrooge_generator}"
 
+    compile "com.twitter:finagle-serversets_2.11:6.41.0"
     compile "org.scala-lang.modules:scala-java8-compat_2.11:0.8.0"
     compile "com.twitter:finatra-http_2.11:2.7.0"
     compile "org.jetbrains.kotlin:kotlin-stdlib:${versions.kotlinVersion}"
