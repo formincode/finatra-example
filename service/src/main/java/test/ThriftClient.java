@@ -15,8 +15,7 @@ public class ThriftClient {
         ServiceInterface.ServiceIface client = Thrift.client().newIface(dest, ServiceInterface.ServiceIface.class);
         Response resp = Await.result(client.get(new Request()));
 
-        client = Thrift.client().newIface("localhost:1234", ServiceInterface.ServiceIface.class);
-        resp = Await.result(client.get(new Request()));
-        return;
+        //client = Thrift.client().newIface("localhost:1234", ServiceInterface.ServiceIface.class);
+        //resp = Await.result(client.get(new Request()));
     }
 }

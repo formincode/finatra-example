@@ -12,7 +12,9 @@ import com.twitter.finatra.http.AbstractHttpServer;
 import com.twitter.finatra.http.filters.CommonFilters;
 import com.twitter.finatra.http.routing.HttpRouter;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.util.Collection;
 import java.util.HashMap;
 
@@ -22,8 +24,31 @@ import java.util.HashMap;
 public class ExampleServer extends AbstractHttpServer {
 
     @Override
+    public boolean disableAdminHttpServer() { return true;}
+
+    @Override
     public String defaultFinatraHttpPort() {
-        return ":8080";
+        try {
+            ServerSocket socket = new ServerSocket(0);
+            socket.close();
+            return ":"+socket.getLocalPort();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    public Integer getRandomPort() {
+        try {
+            ServerSocket socket = new ServerSocket(0);
+            socket.close();
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 
     @Override
@@ -39,7 +64,7 @@ public class ExampleServer extends AbstractHttpServer {
 
         FakeService service = this.injector().instance(FakeService.class);
         String path = "/test/example";
-        InetSocketAddress serverHost = new java.net.InetSocketAddress(1234);
+        InetSocketAddress serverHost = new java.net.InetSocketAddress(getRandomPort());
 
         Thrift.server().serveIface(serverHost,new ServiceIfaceImpl(service));
         //Thrift.server().serveIface("localhost:1234",new ServiceIfaceImpl(service));
