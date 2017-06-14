@@ -1,35 +1,35 @@
 package test.annotation;
 
-import com.twitter.collection.RecordSchema;
 import com.twitter.finagle.http.Request;
 import com.twitter.finagle.http.Response;
 import com.twitter.finatra.http.AbstractController;
 import com.twitter.util.Future;
-import javafx.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Field;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 import java.util.Arrays;
-import java.util.Stack;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.IntFunction;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static scala.compat.java8.JFunction.func;
 
 
-/**
- * Provides an abstraction over FitbitController allowing subclasses to use
- * Annotated Methods in place of the builder functions
- *
- * @see Get
- */
 public abstract class AnnotatedController extends AbstractController {
 
     private final String pathPrefix;
@@ -98,6 +98,9 @@ public abstract class AnnotatedController extends AbstractController {
             if (type == Request.class) {
                 return (Function<Request, Object>) request -> request;
             }
+            if (parameter.isAnnotationPresent(Param.class)) {
+                return makeParamBuilder(parameter.getAnnotation(Param.class).value(), type);
+            }
             throw new IllegalArgumentException("Unable to determine argument type for "
                     + method.getName() + " " + parameter.getName());
         }).toArray((IntFunction<Function<Request, Object>[]>) Function[]::new);
@@ -117,125 +120,273 @@ public abstract class AnnotatedController extends AbstractController {
         };
     }
 
-    private Function<Request, Object> makeFromBuilder(String fieldOrMethodName, Type paramType) {
-        Field field = getField(fieldOrMethodName);
-        if (field == null) {
-            Pair<Class, String> getSearchAndName = getSearchClassAndName(fieldOrMethodName);
-            Class toSearch = getSearchAndName.getKey();
-            String methodName = getSearchAndName.getValue();
-            //search for a method with the given name
-            Method m = Stream.concat(Arrays.stream(toSearch.getMethods()),
-                    toSearch == getClass() ? Arrays.stream(toSearch.getDeclaredMethods()) : Stream.empty())
-                    .filter(method -> method.getName().equals(methodName))
-                    .filter(method -> (Modifier.isStatic(method.getModifiers()) && Modifier.isPublic(method.getModifiers()))
-                            || method.getDeclaringClass() == getClass())
-                    .filter(method -> method.getGenericReturnType().equals(paramType))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Unable to find field or method named "
-                            + fieldOrMethodName));
-            if (!m.isAccessible()) {
-                m.setAccessible(true);
-            }
-            return createMapperFromMethod(m);
-        }
-        //check the type of the field
-        Pair<Function, ParameterizedType> fieldValue = getFieldCheckedValue(field, Function.class);
-        if (fieldValue.getValue().getActualTypeArguments()[0] != Request.class
-                || !fieldValue.getValue().getActualTypeArguments()[1].equals(paramType)) {
-            throw new IllegalArgumentException("Expected Function<Request," + paramType.getTypeName() + "> but was" +
-                fieldValue.getValue().getTypeName());
-        }
-        return (Function<Request, Object>) fieldValue.getKey();
-    }
-
-    private Function<Request,Object> makeContextBuilder(String fieldName, Type paramType) {
-        Field field = getField(fieldName);
-        if (field == null) {
-            throw new IllegalArgumentException("Unable to find field " + fieldName);
-        }
-        //get the value out of the field
-        Pair<RecordSchema.Field, ParameterizedType> fieldValue = getFieldCheckedValue(field, RecordSchema.Field.class);
-        Type contextFieldType = fieldValue.getValue().getActualTypeArguments()[0];
-        if (!contextFieldType.equals(paramType)) {
-            throw new IllegalArgumentException("Context parameter type mistach, expected "
-                    + contextFieldType.getTypeName() + " but was " + paramType.getTypeName());
-        }
-        return request -> request.ctx().apply(fieldValue.getKey());
-    }
-
-    private Field getField(String fieldName){
-        Pair<Class, String> searchAndName = getSearchClassAndName(fieldName);
-        Class toSearch = searchAndName.getKey();
-        String actualFieldName = searchAndName.getValue();
-        try {
-            return toSearch.getField(actualFieldName);
-        } catch (NoSuchFieldException e) {
-            if (toSearch == getClass()) {
-                try {
-                    return toSearch.getDeclaredField(actualFieldName);
-                } catch (NoSuchFieldException ignored) {}
-            }
-            return null;
-        }
-    }
-
-    private <T> Pair<T,ParameterizedType> getFieldCheckedValue(Field field, Class<T> rawType) {
-        try {
-            if (!field.isAccessible()) {
-                field.setAccessible(true);
-            }
-            Object o = field.get(this);
-            if (!rawType.isInstance(o)) {
-                throw new IllegalArgumentException("Expected field to be of type " + rawType.getName());
-            }
-            //verify that the field type matches the desired type
-            Stack<Type> toCheck = new Stack<>();
-            toCheck.add(field.getGenericType());
-            while (!toCheck.isEmpty()) {
-                Type check = toCheck.pop();
-                if (check instanceof ParameterizedType) {
-                    if (((ParameterizedType) check).getRawType() == rawType) {
-                        return new Pair<>((T)o, (ParameterizedType)check);
-                    }
-                    check = ((ParameterizedType) check).getRawType();
-                }
-                if (check instanceof Class) {
-                    Type superClass = ((Class)check).getGenericSuperclass();
-                    if (superClass != null) {
-                        toCheck.add(superClass);
-                    }
-                    if (rawType.isInterface()) {
-                        toCheck.addAll(Arrays.asList(((Class) check).getGenericInterfaces()));
-                    }
-                }
-            }
-            throw new IllegalArgumentException("Unable to obtain parameterized type from field");
-        } catch (IllegalAccessException | IllegalArgumentException e) {
-            throw new IllegalArgumentException("Unable to obtain field value " + field.getName(), e);
-        }
-    }
-
-    private Pair<Class, String> getSearchClassAndName(String fieldOrMethodName) {
-        //split the property name on dots.
-        String[] fieldParts = fieldOrMethodName.split("\\.");
-        Class toSearch;
-        if (fieldParts.length == 1) {
-            toSearch = getClass();
+    private Function<Request, Object> makeParamBuilder(String paramName, Type paramType) {
+        if (paramType == short.class) {
+            return request -> request.getShortParam(paramName);
+        } else if (paramType == int.class) {
+            return request -> request.getIntParam(paramName);
+        } else if (paramType == long.class) {
+            return request -> request.getLongParam(paramName);
+        } else if (paramType == boolean.class) {
+            return request -> request.getBooleanParam(paramName);
+        } else if (paramType == byte.class) {
+            //Use the short converter already supplied
+            return request -> Short.valueOf(request.getShortParam(paramName)).shortValue();
         } else {
-            //rejoin all but the last value
-            StringBuilder b = new StringBuilder();
-            for (int i = 0; i < fieldParts.length - 1; i++) {
-                if (b.length() > 0) {
-                    b.append(".");
-                }
-                b.append(fieldParts[i]);
+            //Try Collections
+            Optional<Function<Stream<String>, Object>> maybeCollection =
+                    tryCollection(paramType, logger);
+            if (maybeCollection.isPresent()) {
+                Function<Stream<String>, Object> collectionBuilder = maybeCollection.get();
+                return request -> collectionBuilder.apply(request.getParams(paramName).stream());
             }
-            try {
-                toSearch = Class.forName(b.toString());
-            } catch (ClassNotFoundException e) {
-                throw new IllegalArgumentException("Unable to load class " + b.toString(), e);
+            Function<String, Object> converter = makeValueConverter(paramType, logger);
+            return request -> converter.apply(request.getParam(paramName));
+        }
+    }
+
+    static Optional<Function<Stream<String>,Object>> tryCollection(Type targetType, Logger logger) {
+        if (targetType instanceof ParameterizedType) {
+            ParameterizedType pt = (ParameterizedType) targetType;
+            Type raw = pt.getRawType();
+            // Collections
+            if (raw == Set.class) {
+                Function<String, Object> inner = makeValueConverter(pt.getActualTypeArguments()[0], logger);
+                return Optional.of(values -> values.map(inner).collect(Collectors.toSet()) );
+            } else if (raw == List.class) {
+                Function<String, Object> inner = makeValueConverter(pt.getActualTypeArguments()[0], logger);
+                return Optional.of(values -> values.map(inner).collect(Collectors.toList()));
+            }
+            return Optional.empty();
+        }
+
+        if (targetType instanceof Class) {
+            Class targetClass = (Class) targetType;
+            //arrays
+            if (targetClass.isArray()) {
+                Class componentType = targetClass.getComponentType();
+                Function<String, Object> inner = makeValueConverter(componentType, logger);
+                return Optional.of(values -> values.map(inner)
+                        .toArray(length -> (Object[]) Array.newInstance(componentType, length)));
             }
         }
-        return new Pair<>(toSearch, fieldParts[fieldParts.length - 1]);
+
+        return Optional.empty();
+
+    }
+
+    static Function<String, Object> makeValueConverter(Type targetType, Logger logger) {
+        // Special case for Void, Object, String, and CharSequence since they're no-ops
+        if (targetType == Void.TYPE || targetType == Void.class || targetType == Object.class
+                || targetType == String.class || targetType == CharSequence.class) {
+            return value -> value;
+        }
+
+        //Primitive handlers
+        if (targetType == byte.class) {
+            return value -> {
+                try {
+                    return Byte.valueOf(value).byteValue();
+                } catch (NumberFormatException nfe) {
+                    logger.info("Unable to coerce value of " + value + " to byte");
+                    return (byte)0;
+                }
+            };
+        } else if (targetType == short.class) {
+            return value -> {
+                try {
+                    return Short.valueOf(value).shortValue();
+                } catch (NumberFormatException nfe) {
+                    logger.info("Unable to coerce value of " + value + " to short");
+                    return (short)0;
+                }
+            };
+        } else if (targetType == int.class) {
+            return value -> {
+                try {
+                    return Integer.valueOf(value).intValue();
+                } catch (NumberFormatException nfe) {
+                    logger.info("Unable to coerce value of " + value + " to int");
+                    return (int)0;
+                }
+            };
+        } else if (targetType == long.class) {
+            return value -> {
+                try {
+                    return Long.valueOf(value).longValue();
+                } catch (NumberFormatException nfe) {
+                    logger.info("Unable to coerce value of " + value + " to long");
+                    return (long)0;
+                }
+            };
+        } else if (targetType == float.class) {
+            return value -> {
+                try {
+                    return Float.valueOf(value).floatValue();
+                } catch (NumberFormatException nfe) {
+                    logger.info("Unable to coerce value of " + value + " to float");
+                    return (float)0.0;
+                }
+            };
+        } else if (targetType == double.class) {
+            return value -> {
+                try {
+                    return Double.valueOf(value).doubleValue();
+                } catch (NumberFormatException nfe) {
+                    logger.info("Unable to coerce value of " + value + " to double");
+                    return (double)0.0;
+                }
+            };
+        }
+
+        //Anything not covered above is a Reference Type and can take a Null value
+        Function<String, Object> inner = makeRefConverter(targetType, logger);
+        return value -> {
+            // If null comes in null goes out
+            if (value == null) {
+                return null;
+            }
+            return inner.apply(value);
+        };
+    }
+
+    private static Function<String,Object> makeRefConverter(Type targetType, Logger logger) {
+        //collections
+        Optional<Function<Stream<String>, Object>> maybeCollection = tryCollection(targetType, logger);
+        if (maybeCollection.isPresent()) {
+            Function<Stream<String>, Object> builder = maybeCollection.get();
+            return value -> builder.apply(Stream.of(value));
+        }
+
+        //Parameterized Types
+        if (targetType instanceof ParameterizedType) {
+            ParameterizedType pt = (ParameterizedType) targetType;
+            Type raw = pt.getRawType();
+            if (raw instanceof Class) {
+                Class rawClass = (Class) raw;
+                Type[] typeArgs = pt.getActualTypeArguments();
+                TypeVariable<Class>[] typeParameters = rawClass.getTypeParameters();
+                Map<String, Type> generics = new HashMap<>(typeParameters.length);
+                for (int i = 0; i < typeParameters.length; i++) {
+                    generics.put(typeParameters[i].getName(), typeArgs[i]);
+                }
+                return makeFactory(rawClass, generics, logger);
+            }
+        }
+
+        //Everything else
+        if (targetType instanceof Class) {
+            Class targetClass = (Class) targetType;
+            return makeFactory(targetClass, new HashMap<>(), logger);
+        }
+
+        throw new IllegalArgumentException("Unable to build value converter");
+    }
+
+    private static Function<String, Object> makeFactory(Class<?> targetType,
+                                                        Map<String, Type> genericTypes,
+                                                        Logger logger) {
+        //look for a static factory function
+        List<Method> factories = Arrays.stream(targetType.getMethods()).filter(method ->
+                Modifier.isStatic(method.getModifiers()) && method.getReturnType() == targetType
+                        && method.getParameterCount() == 1
+        ).collect(Collectors.toList());
+        if (!factories.isEmpty()) {
+            //find the best matching Method
+            Method bestMatch = null;
+            for (Method m : factories) {
+                if (bestMatch == null) {
+                    bestMatch = m;
+                    continue;
+                }
+                if (isBetter(bestMatch.getName(), m.getName(),
+                        bestMatch.getParameters()[0], m.getParameters()[0], genericTypes)) {
+                    bestMatch = m;
+                }
+            }
+            final Method f = bestMatch;
+            Type p = f.getParameters()[0].getParameterizedType();
+            if (p instanceof TypeVariable) {
+                p = genericTypes.get(((TypeVariable) p).getName());
+            }
+            Function<String, Object> inner = makeValueConverter(p, logger);
+            return value -> {
+                try {
+                    return f.invoke(null, inner.apply(value));
+                } catch (InvocationTargetException ite) {
+                    throw new RuntimeException(ite.getTargetException());
+                } catch (IllegalAccessException e) {
+                    logger.info("Unable to coerce value of " + value + " to " + targetType.getName());
+                    return null;
+                }
+            };
+        }
+
+        //Look for single argument constructors, don't care about the type
+        List<Constructor<?>> constructors = Arrays.stream(targetType.getConstructors())
+                .filter(c -> c.getParameterCount() == 1).collect(Collectors.toList());
+        if (!constructors.isEmpty()) {
+            //find the best matching Constructor
+            Constructor<?> bestMatch = null;
+            for (Constructor<?> c : constructors) {
+                if (bestMatch == null) {
+                    bestMatch = c;
+                    continue;
+                }
+                if (isBetter(bestMatch.getName(), c.getName(), bestMatch.getParameters()[0],
+                        c.getParameters()[0], genericTypes)) {
+                    bestMatch = c;
+                }
+            }
+            final Constructor<?> c = bestMatch;
+            Type p = c.getParameters()[0].getParameterizedType();
+            if (p instanceof TypeVariable) {
+                p = genericTypes.get(((TypeVariable) p).getName());
+            }
+            Function<String, Object> inner = makeValueConverter(p, logger);
+            return value -> {
+                try {
+                    return c.newInstance(inner.apply(value));
+                } catch (InvocationTargetException ite) {
+                    throw new RuntimeException(ite.getTargetException());
+                } catch (IllegalAccessException | InstantiationException e) {
+                    logger.info("Unable to coerce value of " + value + " to " + targetType.getName());
+                    return null;
+                }
+            };
+        }
+        throw new IllegalArgumentException("Unable to find factory method");
+    }
+
+    private static Boolean isBetter(String currentName, String otherName,
+                                    Parameter current, Parameter other, Map<String, Type> generics) {
+        //resolve to actual types
+        Type c = current.getParameterizedType();
+        Type o = other.getParameterizedType();
+        if (c instanceof TypeVariable) {
+            c = generics.get(((TypeVariable) c).getName());
+        }
+        if (o instanceof TypeVariable) {
+            o = generics.get(((TypeVariable) o).getName());
+        }
+        //prefer String
+        if (c == String.class) {
+            if (o != String.class) {
+                return false;
+            }
+            //prefer valueOf
+            if (!currentName.equals("valueOf") && otherName.equals("valueOf")) {
+                return true;
+            }
+        } else {
+            if (o == String.class) {
+                return true;
+            }
+            //prefer valueOf
+            if (!currentName.equals("valueOf") && otherName.equals("valueOf")) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import test.annotation.AnnotatedController;
 import test.annotation.Get;
+import test.annotation.Param;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -29,10 +30,10 @@ public class ExampleAnnotatedControllerJava extends AnnotatedController {
         this.pool=pool;
     }
 
-    @Get("/test.json")
-    public Future<String> getTest() {
+    @Get("/:userId/test.json")
+    public Future<String> getTest(@Param("userId") String userId) {
         return pool.apply(func(() -> {
-            return "hello";
+            return "hello "+userId;
         }));
     }
 
