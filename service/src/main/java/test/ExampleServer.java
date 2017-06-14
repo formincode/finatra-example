@@ -60,6 +60,7 @@ public class ExampleServer extends AbstractHttpServer {
     public void configureHttp(HttpRouter httpRouter) {
         httpRouter
                 .filter(CommonFilters.class)
+                .add(ExampleAnnotatedControllerJava.class)
                 .add(ExampleControllerJava.class);
 
         FakeService service = this.injector().instance(FakeService.class);
