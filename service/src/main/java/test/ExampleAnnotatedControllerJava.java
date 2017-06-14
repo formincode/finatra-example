@@ -1,17 +1,18 @@
 package test;
 
+import com.twitter.finagle.http.Response;
 import com.twitter.util.Future;
 import com.twitter.util.FuturePool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import test.annotation.AnnotatedController;
+import test.annotation.Body;
 import test.annotation.Get;
 import test.annotation.Param;
+import test.annotation.Post;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-
-import static scala.compat.java8.JFunction.func;
 
 /**
  * Created by msrivastava on 5/31/17.
@@ -31,10 +32,12 @@ public class ExampleAnnotatedControllerJava extends AnnotatedController {
     }
 
     @Get("/:userId/test.json")
-    public Future<String> getTest(@Param("userId") String userId) {
-        return pool.apply(func(() -> {
-            return "hello "+userId;
-        }));
+    public Future<Response> getTest(@Param("userId") String userId) {
+        return Future.value(response().ok("hello"+userId));
     }
 
+    @Post("/:userId/test2.json")
+    public Future<Response> postTest(@Param("userId") String userId,@Body String value) {
+        return Future.value(response().ok("hello"+value));
+    }
 }

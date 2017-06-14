@@ -57,6 +57,10 @@ public abstract class AnnotatedController extends AbstractController {
                 Get annotation = method.getAnnotation(Get.class);
                 get(prefixPath(annotation.value()), request ->  createCallbackFromMethod(method).apply(request));
             }
+            if (method.isAnnotationPresent(Post.class)) {
+                Post annotation = method.getAnnotation(Post.class);
+                post(prefixPath(annotation.value()), request ->  createCallbackFromMethod(method).apply(request));
+            }
         }
     }
 
@@ -101,6 +105,9 @@ public abstract class AnnotatedController extends AbstractController {
             if (parameter.isAnnotationPresent(Param.class)) {
                 return makeParamBuilder(parameter.getAnnotation(Param.class).value(), type);
             }
+            if (parameter.isAnnotationPresent(Body.class)) {
+                return makeBodyBuilder(type);
+            }
             throw new IllegalArgumentException("Unable to determine argument type for "
                     + method.getName() + " " + parameter.getName());
         }).toArray((IntFunction<Function<Request, Object>[]>) Function[]::new);
@@ -118,6 +125,17 @@ public abstract class AnnotatedController extends AbstractController {
                 throw new RuntimeException(e.getTargetException());
             }
         };
+    }
+
+    private Function<Request, Object> makeBodyBuilder(Type paramType) {
+        if (paramType == String.class) {
+            return request -> request.contentString();
+        } else if (paramType instanceof Class && ((Class) paramType).isArray()
+                && ((Class) paramType).getComponentType() == byte.class) {
+            return request -> request.content().copiedByteArray();
+        }
+        throw new IllegalArgumentException("Unable to convert body to " + paramType.getTypeName()
+                + " allowed types are String or byte[]");
     }
 
     private Function<Request, Object> makeParamBuilder(String paramName, Type paramType) {
