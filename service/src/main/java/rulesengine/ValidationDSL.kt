@@ -3,7 +3,7 @@ package rulesengine
 /**
  * Created by msrivastava on 7/20/17.
  */
-fun engine(init: Engine.() -> Unit): Engine {
+fun validationengine(init: Engine.() -> Unit): Engine {
     val engine = Engine()
     engine.init()
     return engine
@@ -20,7 +20,7 @@ fun musthave(field:()->String):MustHave {
 fun main(args : Array<String>) {
     val tim = Person("Tim", income = 100)
 
-    engine {
+    validationengine {
         addRule {
             examplerule("Missing Nationality") {
                 p -> p.nationality!=null

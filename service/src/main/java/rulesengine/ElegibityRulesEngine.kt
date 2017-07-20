@@ -6,21 +6,12 @@ package rulesengine
 class Application(val candidate: Person) {
 
     var isWorthyOfInterview:Boolean = false
-        private set
 
     var isGood:Boolean = false
-        private set
 
     var isProductive:Boolean=false
-        private set
 
     var isOther:Boolean = false
-        private set
-
-    fun markAsWorthyOfInterview() = { this.isWorthyOfInterview=true }
-    fun markAsGood() = { this.isGood=true }
-    fun markAsProductive() = { this.isProductive=true }
-    fun markAsOther() = { this.isOther=true }
 }
 
 class ElegibityRule(val description:String, val condition: (Application)->Boolean, val action: (Application) -> Unit) {
@@ -39,12 +30,20 @@ class ElegibityRule(val description:String, val condition: (Application)->Boolea
 
 class ElegibityRuleBase() {
     val rules = mutableListOf<ElegibityRule>()
+
+    fun  addRule(init: () -> ElegibityRule) {
+        rules.add(init())
+    }
 }
 
 class ElegibityRulesEngine(val rulesBase:ElegibityRuleBase,val application: Application) {
     val availableRules = mutableListOf<ElegibityRule>()
     val agenda = mutableListOf<ElegibityRule>()
     val firedLog = mutableListOf<ElegibityRule>()
+
+    init {
+        availableRules.addAll(rulesBase.rules)
+    }
 
     private fun activateRules() {
         for (rule in availableRules) {
