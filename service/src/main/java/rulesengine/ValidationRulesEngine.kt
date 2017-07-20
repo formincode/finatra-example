@@ -33,7 +33,11 @@ class MustHave(val property: String): Rule {
 class Engine {
     val rules = mutableListOf<Rule>()
 
-    fun run(person:Person):Notification {
+    fun  addRule(init: () -> Rule) {
+        rules.add(init())
+    }
+
+    fun runRules(person:Person):Notification {
         val result=Notification()
         for (rule in rules) {
             rule.check(result,person)
@@ -43,11 +47,14 @@ class Engine {
 }
 
 fun main(args : Array<String>) {
-    val engine = Engine()
-    val tim = Person("Tim",income=100)
-    engine.rules.add(ExampleRule({p -> p.nationality!=null},"Missing Nationality"))
-    println(engine.run(tim).errors)
-    engine.rules.clear()
-    engine.rules.add(MustHave("income"))
-    println(engine.run(tim).errors)
+    val tim = Person("Tim",income = 100)
+
+    val concreteEngine = Engine()
+    concreteEngine.rules.add(ExampleRule({p -> p.nationality!=null},"Missing Nationality"))
+    println(concreteEngine.runRules(tim).errors)
+    concreteEngine.rules.clear()
+    concreteEngine.rules.add(MustHave("income"))
+    concreteEngine.rules.add(MustHave("university"))
+    println(concreteEngine.runRules(tim).errors)
+    concreteEngine.rules.clear()
 }

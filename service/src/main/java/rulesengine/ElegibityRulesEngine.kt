@@ -46,7 +46,7 @@ class ElegibityRulesEngine(val rulesBase:ElegibityRuleBase,val application: Appl
     val agenda = mutableListOf<ElegibityRule>()
     val firedLog = mutableListOf<ElegibityRule>()
 
-    fun activateRules() {
+    private fun activateRules() {
         for (rule in availableRules) {
             if (rule.canActivate(application)) {
                 agenda.add(rule)
@@ -58,19 +58,19 @@ class ElegibityRulesEngine(val rulesBase:ElegibityRuleBase,val application: Appl
         }
     }
 
-    fun fireRulesOnAgenda() {
+    private fun fireRulesOnAgenda() {
         while (agenda.size>0) {
             fire(agenda.first())
         }
     }
 
-    fun fire(rule:ElegibityRule){
+    private fun fire(rule:ElegibityRule){
         rule.fire(application)
         firedLog.add(rule)
         agenda.remove(rule)
     }
 
-    fun run() {
+    fun runRules() {
         activateRules()
         while (agenda.size > 0) {
             fireRulesOnAgenda()
