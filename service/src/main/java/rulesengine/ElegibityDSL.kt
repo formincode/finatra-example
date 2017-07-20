@@ -30,7 +30,7 @@ fun main(args : Array<String>) {
             elegibityRule("test2",{application.isGood},{println("we have a winner")})
         }
         addRule {
-            elegibityRule("test1",{application.candidate.name!=null},{application.isGood=true})
+            elegibityRule("test1",{application.candidate.name!=null},{application.markAsGood()})
         }
     }
 
