@@ -1,10 +1,16 @@
-package rulesengine
+package dsl
+
+import rulesengine.Application
+import rulesengine.ElegibityRule
+import rulesengine.ElegibityRuleBase
+import rulesengine.ElegibityRulesEngine
+import rulesengine.Person
 
 /**
  * Created by msrivastava on 7/20/17.
  */
 
-fun elegibilityengine(rulesBase:ElegibityRuleBase,application: Application,init: ElegibityRulesEngine.() -> Unit): ElegibityRulesEngine {
+fun elegibilityengine(rulesBase: ElegibityRuleBase, application: Application, init: ElegibityRulesEngine.() -> Unit): ElegibityRulesEngine {
     val engine = ElegibityRulesEngine(rulesBase,application)
     engine.init()
     return engine
@@ -16,7 +22,7 @@ fun elegibityRuleBase(init: ElegibityRuleBase.()->Unit): ElegibityRuleBase {
     return elegibityRuleBase
 }
 
-fun elegibityRule (desc:String="",condition:(Application) -> Boolean,action:(Application)->Unit):ElegibityRule {
+fun elegibityRule (desc:String="", condition:(Application) -> Boolean, action:(Application)->Unit): ElegibityRule {
     return ElegibityRule(desc,condition,action)
 }
 

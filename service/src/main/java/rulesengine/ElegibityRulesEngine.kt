@@ -6,12 +6,20 @@ package rulesengine
 class Application(val candidate: Person) {
 
     var isWorthyOfInterview:Boolean = false
+        private set
 
     var isGood:Boolean = false
+        private set
 
     var isProductive:Boolean=false
+        private set
 
     var isOther:Boolean = false
+        private set
+
+    fun markAsGood() {
+        this.isGood=true
+    }
 }
 
 class ElegibityRule(val description:String, val condition: (Application)->Boolean, val action: (Application) -> Unit) {
