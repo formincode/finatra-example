@@ -24,37 +24,40 @@ class ElegibityDSL {
         while (binding.result) {
             shell.run()
         }
+        println(binding.log)
     }
 
     static void prepareClosures (Binding binding) {
 
         binding.initRules = { closure ->
-            closure.delegate = delegate
             closure()
         }
 
         binding.rule = { spec, closure ->
-            closure.delegate = delegate
             binding.result = true
-            closure()
+            if (!binding.log.contains(spec)) {
+                binding.current=spec
+                closure()
+                binding.current=null
+            } else {
+                binding.result = false
+            }
         }
 
         binding.action = { closure ->
-            closure.delegate = delegate
-
             if (binding.result) {
+                binding.log.add(binding.current)
                 closure()
             }
         }
 
         binding.condition = { closure ->
-            closure.delegate = delegate
-
             binding.result = (closure() && binding.result)
         }
     }
 
     static void main(String[] args) {
         loadRules(new Application(new Person("Tim",null,null,null)))
+        loadRules(new Application(new Person("frank",null,null,null)))
     }
 }

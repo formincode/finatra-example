@@ -8,9 +8,18 @@ initRules {
         }
     }
 
+    rule ( "test3" ) {
+        condition {
+            application.candidate.name=="frank"
+        }
+        action {
+            println("we found frank")
+        }
+    }
+
     rule ( "test1" ) {
         condition {
-             application.candidate.name!=null && !application.isGood
+             application.candidate.name!=null
         }
         action {
             application.markAsGood()
