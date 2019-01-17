@@ -12,19 +12,23 @@ class ElegibityDSL {
         init_rules = false
     }
 
-    static void loadRules(Application application) {
+    static Script createScript() {
         Binding binding = new Binding()
-        binding.application = application
-        binding.result=true
-        binding.log = []
-
-        prepareClosures(binding)
-
         Script shell = new GroovyShell(binding).parse(new File("service/src/main/resources/elegibility.groovy"))
-        while (binding.result) {
+        return shell;
+    }
+
+    static void loadRules(Application application,Script shell) {
+        shell.binding.variables.clear()
+        prepareClosures(shell.binding)
+        shell.binding.application = application
+        shell.binding.result=true
+        shell.binding.log = []
+
+        while (shell.binding.result) {
             shell.run()
         }
-        println(binding.log)
+        println(shell.binding.log)
     }
 
     static void prepareClosures (Binding binding) {
@@ -52,12 +56,13 @@ class ElegibityDSL {
         }
 
         binding.condition = { closure ->
-            binding.result = (closure() && binding.result)
+            binding.result = closure()
         }
     }
 
     static void main(String[] args) {
-        loadRules(new Application(new Person("Tim",null,null,null)))
-        loadRules(new Application(new Person("frank",null,null,null)))
+        Script shell = createScript()
+        loadRules(new Application(new Person("Tim",null,null,null)),shell)
+        loadRules(new Application(new Person("frank",null,null,null)),shell)
     }
 }

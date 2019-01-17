@@ -10,7 +10,7 @@ initRules {
 
     rule ( "test3" ) {
         condition {
-            application.candidate.name=="frank"
+              application.candidate.name=="frank"
         }
         action {
             println("we found frank")

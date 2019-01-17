@@ -3,7 +3,7 @@ package rulesengine
 /**
  * Created by msrivastava on 7/19/17.
  */
-data class Person(val name:String,var university:String?=null, var income:Int?=null, var nationality:String?=null)
+data class Person(val name:String?=null,var university:String?=null, var income:Int?=null, var nationality:String?=null)
 
 class Notification() {
     val errors = mutableListOf<String>()
