@@ -19,7 +19,6 @@ import javax.inject.Singleton;
  */
 @Singleton
 public class ExampleAnnotatedControllerJava extends AnnotatedController {
-    private static final String ERROR_CONTENT_STRING = "{\"errors\":[\"%s\"]}";
     private FakeService fakeService;
     private FuturePool pool;
     private static final Logger logger = LoggerFactory.getLogger(ExampleAnnotatedControllerJava.class);
@@ -33,7 +32,8 @@ public class ExampleAnnotatedControllerJava extends AnnotatedController {
 
     @Get("/:userId/test.json")
     public Future<Response> getTest(@Param("userId") String userId) {
-        return Future.value(response().ok("hello"+userId));
+        System.out.println("{\"hello\":"+userId+"}");
+        return Future.value(response().ok().json("{\"hello\":"+userId+"}"));
     }
 
     @Post("/:userId/test2.json")

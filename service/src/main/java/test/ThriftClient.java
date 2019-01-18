@@ -14,7 +14,7 @@ public class ThriftClient {
         String dest = "zk!localhost:2181!/test/example";
         ServiceInterface.ServiceIface client = Thrift.client().newIface(dest, ServiceInterface.ServiceIface.class);
         Response resp = Await.result(client.get(new Request()));
-
+        System.out.println(resp);
         //client = Thrift.client().newIface("localhost:1234", ServiceInterface.ServiceIface.class);
         //resp = Await.result(client.get(new Request()));
     }
